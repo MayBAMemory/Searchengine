@@ -1,7 +1,7 @@
 all: search cut
 
-server: src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/INIReader.o src/ini.o 
-	g++ src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/INIReader.o src/ini.o -o bin/serve -lredis++ -lhiredis -pthread -lworkflow -lwfrest 
+server: src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/INIReader.o src/ini.o 
+	g++ src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/INIReader.o src/ini.o -o bin/serve -lredis++ -lhiredis -pthread -lworkflow -lwfrest 
 
 src/search_engine_server.o: src/search_engine_server.cpp
 	g++ -O2 -g -c src/search_engine_server.cpp -o src/search_engine_server.o
@@ -14,6 +14,9 @@ cut: src/words_cut.o src/INIReader.o src/ini.o
 
 xml: src/rss2.o src/article_manager.o src/words_cut.o src/inverted_index.o src/tinyxml2.o src/INIReader.o src/ini.o 
 	g++ src/rss2.o src/article_manager.o src/words_cut.o src/inverted_index.o src/tinyxml2.o src/INIReader.o src/ini.o -o bin/xml -lredis++ -lhiredis -pthread
+
+src/return_title.o: src/returnTitle.cpp
+	g++ -O2 -g -c src/returnTitle.cpp -o src/return_title.o
 
 src/inverted_index.o: src/inverted_index.cpp
 	g++ -O2 -g -c src/inverted_index.cpp -o src/inverted_index.o
@@ -34,7 +37,7 @@ src/main.o: main.cpp
 	g++ -O2 -c main.cpp -o src/main.o
 
 src/recommand_words.o: src/recommand_words.cpp 
-	g++ -O2 -c src/recommand_words.cpp -o src/recommand_words.o -lredis++ -lhiredis -pthread
+	g++ -O2 -c src/recommand_words.cpp  -o src/recommand_words.o -lredis++ -lhiredis -pthread
 
 src/shortest.o: src/shortest.cpp
 	g++ -O2 -c src/shortest.cpp -o src/shortest.o

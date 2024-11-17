@@ -1,12 +1,12 @@
+#include "../include/rss2.h"
 #include "../include/INIReader.h"
 #include "../include/article_manager.h"
+#include "../include/inverted_index.h"
 #include "../include/tinyxml2.h"
 #include "../include/words_cut.h"
-#include "../include/inverted_index.h"
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <regex>
 #include <string>
 #include <vector>
@@ -47,19 +47,7 @@ struct RSSIteam {
 
 class RSS {
 public:
-  RSS(size_t capa) {
-    _rss.reserve(capa);
-    // _TF =  new unordered_map<size_t, unordered_map<string, size_t>>();
-    // _TF->reserve(50000);
-  }
-
-  // ~RSS() {
-  //      // 析构函数中释放内存
-  //      if (_TF) {
-  //          delete _TF;
-  //          _TF = nullptr;
-  //      }
-  //  }
+  RSS(size_t capa) { _rss.reserve(capa); }
 
   // 读文件
   void read(const string &filename) {
@@ -151,17 +139,32 @@ public:
         // 存储偏移量库
         ofsO << idxG << " " << offS << " " << rssSize << "\n";
         // 下一篇文章偏移量
-        offS += (rssSize + 1);
+        offS += (rssSize);
         ++idxG;
       }
     }
     ofs.close();
     ofsO.close();
   }
-  void storeInvertIndextoRedis(){
-    InvertedIndex index(w,reader.Get("user", "redisInvertIndex", "UNKNOWN"));
-    cout<<index._redisUrl<<endl;
-    
+
+  void storeIDF() {
+    ofstream oIdf("data/IDF.txt");
+    for (auto const [word, IDFnum] : IDF) {
+      oIdf << word << " " << IDFnum <<"\n";
+    }
+    oIdf.close();
+  }
+
+  void copyIDF(unordered_map<string, double> &destIDF) {
+    for (auto const [word, IDFnum] : IDF) {
+      destIDF[word] = IDFnum;
+    }
+  }
+
+  void storeInvertIndextoRedis() {
+    InvertedIndex index(w, reader.Get("user", "redisInvertIndex", "UNKNOWN"));
+    cout << index._redisUrl << endl;
+
     index.storeDocument();
   }
 
@@ -191,7 +194,8 @@ private:
   void calcIDF() {
     // 遍历计算IDF
     for (auto const &map : DF) {
-      IDF.insert({map.first, log2(static_cast<double>(idxG) / static_cast<double>((map.second) + 1))});
+      IDF.insert({map.first, log2(static_cast<double>(idxG) /
+                                  static_cast<double>((map.second) + 1))});
     }
   }
 
@@ -241,12 +245,11 @@ private:
     for (auto const &doc : normalized_w) {
       wr << "文章编号：" << doc.first << ":\n";
       for (const auto &mapp : doc.second) {
-        wr << mapp.first << " " <<fixed << setprecision(6)<< mapp.second << "\n";
+        wr << mapp.first << " " << fixed << setprecision(6) << mapp.second
+           << "\n";
       }
     }
   }
-
-
 
 private:
   vector<RSSIteam> _rss;
@@ -269,8 +272,9 @@ void processDirectory(const string &dir, RSS &rss, const string &storePath,
       bzero(&rss, sizeof(rss));
     }
   }
-  rss.buildInvertIndex();
-  rss.storeInvertIndextoRedis();
+  // rss.buildInvertIndex();
+  // rss.storeInvertIndextoRedis();
+  // rss.storeIDF();
 }
 
 void test0() {

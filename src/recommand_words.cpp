@@ -1,13 +1,71 @@
 #include "../include/recommandWords.h"
 #include "../include/utf8.h"
+#include <fstream>
+#include <sstream>
 
 ;
-void buildBase(unordered_map<string, size_t>& userTF, vector<size_t> &DocId) {
-  for()
+vector<double> buildBase(const vector<string> &words) {
+  unordered_map<string, size_t> userTF;
+  for (auto const &word : words) {
+    userTF[word]++;
+  }
+  unordered_map<string, double> IDF;
+  ifstream iIdf("data/IDF.txt");
+  string line, word;
+  double IDFNum;
+  while (getline(iIdf, line)) {
+    istringstream iss(line);
+    if (iss >> word >> IDFNum) {
+      IDF[word] = IDFNum;
+    }
+  }
+  //
+  // for (auto const &[word, IDFNum] : IDF) {
+  //   norm_factor += IDFNum * IDFNum;
+  // }
+  //
+  double norm_factor = 0.0;
+  for (auto const &[word, freq] : userTF) {
+    if (IDF.find(word) != IDF.end()) {
+      double temp = IDF[word] * static_cast<double>(freq);
+      norm_factor += temp * temp;
+    }
+  }
+  double normedFactor = sqrt(norm_factor);
+  vector<double> Base;
+  for (auto const &[word, freq] : userTF) {
+    // cout<<"外面的循环：word: "<<word<<" , freq:"<<freq<<"\n";
+    if (IDF.find(word) != IDF.end()) {
+      // cout<<"freq:"<<freq<<"\n";
+      Base.emplace_back((IDF[word] * freq) / normedFactor);
+    }
+  }
+  return Base;
 }
 
+// void loadInvertedIndex(
+//     Redis &redis, unordered_map<size_t, unordered_map<string, double>> _w_new) {
+//   vector<string> terms; // 存储所有term的key
+//
+//   // 获取所有term
+//   redis.keys("*", back_inserter(terms));
+//
+//   for (const auto &term : terms) {
+//     // 获取term对应的文档ID和权重
+//     vector<pair<string, double>> doc_weights;
+//     redis.zrangebyscore(term, UnboundedInterval<double>{},
+//                         back_inserter(doc_weights)); // 获取Sorted Set内容
+//
+//     for (const auto &[doc_id_str, weight] : doc_weights) {
+//       size_t doc_id = stoi(doc_id_str); // 将doc_id从字符串转换为整数
+//       _w_new[doc_id][term] = weight;    // 构建哈希表
+//     }
+//   }
+// }
+
 void searchWords(Redis &redis, const vector<string> &terms,
-                 vector<size_t> &DocId) {
+                   unordered_map<size_t, unordered_map<string, double>> &normalized_w,
+                 vector<pair<size_t,double>> &DocId) {
   vector<string> tempTerms;
   string destKey = "temp:search";
   cout << "客户端搜索：";
@@ -24,6 +82,8 @@ void searchWords(Redis &redis, const vector<string> &terms,
   vector<pair<string, double>> results;
   redis.zrevrangebyscore(destKey, UnboundedInterval<double>{},
                          back_inserter(results));
+
+  // 删除临时键
   for (const auto &key : tempTerms) {
     redis.del(key);
   }
@@ -32,11 +92,50 @@ void searchWords(Redis &redis, const vector<string> &terms,
     cout << "没找到" << endl;
     return;
   }
+  //----------
+
+  // 算X
+  vector<double> query_vector = buildBase(terms);
+  // 算Y
+  vector<pair<string, double>> doc_scores;
+  for (const auto &[doc_id, w] : results) {
+    // Y
+    vector<double> doc_vector;
+    for (const auto &term : terms) {
+      double weight = normalized_w[stoul(doc_id)][term];
+      doc_vector.push_back(weight);
+    }
+    for(auto const&w:doc_vector){
+      // cout<<"doc_vector: "<<w<<"\n";
+    }
+    // stable_sort(doc_vector.begin(),doc_vector.end(),[](double a,double b){
+    //   return a>b;
+    // });
+    // 计算余弦相似度
+    double numerator = 0.0;  // 分子
+    double query_norm = 0.0; // 查询向量的模
+    double doc_norm = 0.0;   // 文档向量的模
+
+    for (size_t i = 0; i < terms.size(); i++) {
+      numerator += query_vector[i] * doc_vector[i];
+      query_norm += query_vector[i] * query_vector[i];
+      doc_norm += doc_vector[i] * doc_vector[i];
+    }
+
+    double similarity = numerator / (sqrt(query_norm) * sqrt(doc_norm));
+    doc_scores.emplace_back(doc_id, similarity);
+  }
+
+  sort(doc_scores.begin(), doc_scores.end(),
+       [](const pair<string, double> &a, const pair<string, double> &b) {
+         return a.second > b.second;
+       });
 
   size_t docNums = 10;
   for (size_t i = 0; i < min(results.size(), docNums); ++i) {
-    // DocId.emplace_back(stoull(results[i].first));
-    cout << results[i].first << "\n";
+    DocId.emplace_back(pair(stoull(doc_scores[i].first),doc_scores[i].second));
+    // cout << "DocID: " << doc_scores[i].first
+    //      << ", 相似度: " << doc_scores[i].second << "\n";
   }
 }
 
