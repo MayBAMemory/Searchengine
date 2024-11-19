@@ -13,7 +13,7 @@ unordered_map<int, offsetInfo> loadOffsets() {
   return offsets;
 }
 
-string getTitleById(const offsetInfo &offset) {
+std::pair<string, string> getTitleContentById(const offsetInfo &offset) {
   ifstream pageFile("data/ripepage.dat");
   pageFile.seekg(offset.start);
   string data(offset.length, '\0');
@@ -22,12 +22,15 @@ string getTitleById(const offsetInfo &offset) {
 
   size_t titleStart = data.find("<title>");
   size_t titleEnd = data.find("</title>");
+  size_t contentStart = data.find("<content>");
+  size_t contentEnd = data.find("</content>");
   //若没有没有找到
   if (titleStart != string::npos && titleEnd != string::npos) {
     titleStart += string("<title>").length();
-    return data.substr(titleStart, titleEnd - titleStart);
+    contentStart += string("<content>").length();
+    return std::make_pair(data.substr(titleStart, titleEnd - titleStart),data.substr(contentStart, contentEnd - contentStart));
   }
 
-  return data;
+  return std::make_pair("no","no");
 }
 

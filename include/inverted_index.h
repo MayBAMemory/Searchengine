@@ -12,18 +12,33 @@ using std::unordered_map;
 using std::vector;
 
 class InvertedIndex {
-  private:
-  unordered_map<size_t, unordered_map<string, double>> _w;
+private:
+  // unordered_map<size_t, unordered_map<string, double>> _w;
+  unordered_map<string, unordered_map<size_t, double>> _hashInvertIndex;
+
 public:
-  InvertedIndex(unordered_map<size_t, unordered_map<string, double>> w,const string redisUrl):_w(w),_redisUrl(redisUrl){
-  }
+  // InvertedIndex();
+  // _redisUrl(redisUrl) {}
 
-  string _redisUrl;
-  void
-  storeDocument();
+  void storeInvertIndex(unordered_map<size_t, unordered_map<string, double>> w);
+  unordered_map<string, unordered_map<size_t, double>> getHashInvertIndex();
+  unordered_map<string, vector<pair<size_t, double>>>
+  loadInvertIndex(const string &filename);
+  void loadHashInvertIndex(const string &filename);
 
-  void queryTerm(const string &term, vector<size_t>& docIds);
-
-
-  
+  // string _redisUrl;
+  // void storeDocument();
+  // void queryTerm(const string &term, vector<size_t> &docIds);
 };
+// void saveIndex(const unordered_map<size_t, unordered_map<string, double>>
+// &index,
+//                const string &filename);
+//
+// unordered_map<size_t, unordered_map<string, double>> loadIndex(const string
+// &filename);
+void
+processQuery(const vector<string> &terms,
+             unordered_map<string, vector<pair<size_t, double>>> index,
+             unordered_map<string, unordered_map<size_t, double>> normalized_w,
+             vector<pair<size_t, double>>& docIds,
+             size_t top_k = 10);

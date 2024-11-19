@@ -17,7 +17,7 @@ struct WordInfo {
 void recommandWords(Redis &redis, const string word, vector<string> &recWords);
 
 void searchWords(Redis &redis, const vector<string> &terms,
-                 unordered_map<size_t, unordered_map<string, double>> &normalized_w,
+                 unordered_map<string, unordered_map<size_t, double>> invertIndex,
                  vector<pair<size_t,double>> &DocId);
 
 vector<double> buildBase(const vector<string>& words);

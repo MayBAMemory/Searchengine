@@ -1,7 +1,7 @@
 all: search cut
 
-server: src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/INIReader.o src/ini.o 
-	g++ src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/INIReader.o src/ini.o -o bin/serve -lredis++ -lhiredis -pthread -lworkflow -lwfrest 
+server: src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/LRU.o src/INIReader.o src/ini.o 
+	g++ src/search_engine_server.o src/recommand_words.o src/words_cut.o src/inverted_index.o src/shortest.o src/return_title.o src/LRU.o src/INIReader.o src/ini.o -o bin/serve -lredis++ -lhiredis -pthread -lworkflow -lwfrest 
 
 src/search_engine_server.o: src/search_engine_server.cpp
 	g++ -O2 -g -c src/search_engine_server.cpp -o src/search_engine_server.o
@@ -30,6 +30,8 @@ src/rss2.o: src/rss2.cc
 src/tinyxml2.o: src/tinyxml2.cc
 	g++ -O2 -c src/tinyxml2.cc -o src/tinyxml2.o
 
+src/LRU.o: src/LRU.cpp
+	g++ -O2 -c src/LRU.cpp -o src/LRU.o
 src/words_cut.o: src/words_cut.cpp
 	g++ -O2 -g -c src/words_cut.cpp -o src/words_cut.o
 

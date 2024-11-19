@@ -150,7 +150,7 @@ public:
   void storeIDF() {
     ofstream oIdf("data/IDF.txt");
     for (auto const [word, IDFnum] : IDF) {
-      oIdf << word << " " << IDFnum <<"\n";
+      oIdf << word << " " << IDFnum << "\n";
     }
     oIdf.close();
   }
@@ -161,12 +161,12 @@ public:
     }
   }
 
-  void storeInvertIndextoRedis() {
-    InvertedIndex index(w, reader.Get("user", "redisInvertIndex", "UNKNOWN"));
-    cout << index._redisUrl << endl;
-
-    index.storeDocument();
-  }
+  // void storeInvertIndextoRedis() {
+  //   InvertedIndex index(w, reader.Get("user", "redisInvertIndex", "UNKNOWN"));
+  //   cout << index._redisUrl << endl;
+  //
+  //   index.storeDocument();
+  // }
 
   // void storeTFDF() {
   //   ofstream st("data/TF.txt");
@@ -241,14 +241,10 @@ private:
         normalized_w[docid][word] = normalized_tfIdf;
       }
     }
-    ofstream wr("data/invertIndex.dat");
-    for (auto const &doc : normalized_w) {
-      wr << "文章编号：" << doc.first << ":\n";
-      for (const auto &mapp : doc.second) {
-        wr << mapp.first << " " << fixed << setprecision(6) << mapp.second
-           << "\n";
-      }
-    }
+    //存储倒排索引库
+    InvertedIndex invertIndex;
+    invertIndex.storeInvertIndex(normalized_w);
+
   }
 
 private:
@@ -272,7 +268,7 @@ void processDirectory(const string &dir, RSS &rss, const string &storePath,
       bzero(&rss, sizeof(rss));
     }
   }
-  // rss.buildInvertIndex();
+  rss.buildInvertIndex();
   // rss.storeInvertIndextoRedis();
   // rss.storeIDF();
 }

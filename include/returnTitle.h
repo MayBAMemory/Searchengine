@@ -15,7 +15,7 @@ struct offsetInfo {
 
 unordered_map<int, offsetInfo> loadOffsets(); 
 
-string getTitleById(const offsetInfo &offset);
+std::pair<string, string> getTitleContentById(const offsetInfo &offset);
 
 // int main() {
 //   auto off = loadOffsets();

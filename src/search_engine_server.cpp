@@ -1,4 +1,5 @@
 #include "../include/INIReader.h"
+#include "../include/LRU.h"
 #include "../include/inverted_index.h"
 #include "../include/recommandWords.h"
 #include "../include/returnTitle.h"
@@ -10,21 +11,29 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
+using namespace nlohmann;
 using namespace protocol;
 
 INIReader reader("conf/myconf.conf");
 Redis redis(reader.Get("user", "redisServer", "UNKNOWN"));
-Redis redisSearch(reader.Get("user", "redisInvertIndex", "UNKNOWN"));
+// Redis redisSearch(reader.Get("user", "redisInvertIndex", "UNKNOWN"));
+Redis redisCache("redis://127.0.0.1:6379/5");
 cppjieba::Jieba jieba(reader.Get("user", "dictPath", "UNKNOWN"),
                       reader.Get("user", "modelPath", "UNKNOWN"),
                       reader.Get("user", "user_dict_path", "UNKNOWN"),
                       reader.Get("user", "idfPath", "UNKNOWN"),
                       reader.Get("user", "stopWords", "UNKNOWN"));
+LRU_Cache articleCache(20, redisCache);
 
 class CloudDiskServer {
 public:
-  CloudDiskServer(int cnt) : _waitGroup(cnt) {}
-  ~CloudDiskServer() {}
+  CloudDiskServer(int cnt) : _waitGroup(cnt) {
+    _invertedIndex = _invertIndex.loadInvertIndex("data/invertIndex.dat");
+    _hashInvertedIndex = _invertIndex.getHashInvertIndex();
+  }
+  ~CloudDiskServer() {
+    articleCache.clear();
+  }
   void start(unsigned short port);
   void loadModules();
 
@@ -36,7 +45,9 @@ private:
 private:
   WFFacilities::WaitGroup _waitGroup;
   wfrest::HttpServer _httpserver;
-  unordered_map<size_t, unordered_map<string, double>> _invertIndex;
+  InvertedIndex _invertIndex;
+  unordered_map<string, unordered_map<size_t, double>> _hashInvertedIndex;
+  unordered_map<string, vector<pair<size_t, double>>> _invertedIndex;
 };
 
 void CloudDiskServer::start(unsigned short port) {
@@ -57,22 +68,24 @@ void CloudDiskServer::loadModules() {
 }
 
 void CloudDiskServer::loadInvertIndex() {
-  vector<string> terms; // 存储所有term的key
 
-  // 获取所有term
-  redisSearch.keys("*", back_inserter(terms));
-
-  for (const auto &term : terms) {
-    // 获取term对应的文档ID和权重
-    vector<pair<string, double>> doc_weights;
-    redisSearch.zrangebyscore(term, UnboundedInterval<double>{},
-                              back_inserter(doc_weights)); // 获取Sorted Set内容
-
-    for (const auto &[doc_id_str, weight] : doc_weights) {
-      size_t doc_id = stoul(doc_id_str);   // 将doc_id从字符串转换为整数
-      _invertIndex[doc_id][term] = weight; // 构建哈希表
-    }
-  }
+  // vector<string> terms; // 存储所有term的key
+  //
+  // // 获取所有term
+  // redisSearch.keys("*", back_inserter(terms));
+  //
+  // for (const auto &term : terms) {
+  //   // 获取term对应的文档ID和权重
+  //   vector<pair<string, double>> doc_weights;
+  //   redisSearch.zrangebyscore(term, UnboundedInterval<double>{},
+  //                             back_inserter(doc_weights)); // 获取Sorted
+  //                             Set内容
+  //
+  //   for (const auto &[doc_id_str, weight] : doc_weights) {
+  //     size_t doc_id = stoul(doc_id_str);   // 将doc_id从字符串转换为整数
+  //     _invertIndex[doc_id][term] = weight; // 构建哈希表
+  //   }
+  // }
 }
 
 // 对URI进行解码
@@ -137,19 +150,42 @@ void CloudDiskServer::loadSearchEngine() {
     vector<pair<size_t, double>> docIds;
     vector<string> Titles;
     unordered_map<int, offsetInfo> offsets;
-    searchWords(redisSearch, words, _invertIndex, docIds);
+
+    processQuery(words, _invertedIndex, _hashInvertedIndex, docIds);
+    cout << "获取到的文章数量：" << docIds.size() << "\n";
+    // docIds = wwwords;
+    // searchWords(redisSearch, words, _invertIndex.getInvertIndex(), docIds);
+    vector<Article> articles;
     for (auto const &[docId, weight] : docIds) {
       // cout <<"docId: " <<docId << ", weight: "<<weight<<"\n";
-      offsets = loadOffsets();
-      if (offsets.find(docId) != offsets.end()) {
-        string title = getTitleById(offsets[docId]);
-        Titles.emplace_back(title);
+      auto cacheArticle = articleCache.get(docId);
+      if (cacheArticle) {
+        cout<<"缓存命中"<<"\n";
+        // 缓存命中，使用缓存文章
+        articles.emplace_back(*cacheArticle);
+      } else {
+        // 缓存未命中，老套路从文件读
+        offsets = loadOffsets();
+        if (offsets.find(docId) != offsets.end()) {
+          pair<string, string> title_content =
+              getTitleContentById(offsets[docId]);
+          //尝试存入缓存
+          Article article(title_content);
+          articleCache.put(docId, article);
+          articles.emplace_back(title_content);
+        }
       }
     }
-    for (string const &title : Titles) {
-      resp->String(title);
-      resp->String(" ");
-    }
+
+    json respJson = articles;
+    // respJson["titles"] = Titles;
+    string jsonStr = respJson.dump();
+    resp->String(jsonStr);
+
+    // for (string const &title : Titles) {
+    // resp->Strig(title);
+    //   resp->String(" ");
+    // }
   });
 }
 

@@ -3,45 +3,44 @@
 #include <fstream>
 #include <sstream>
 
-;
-vector<double> buildBase(const vector<string> &words) {
-  unordered_map<string, size_t> userTF;
-  for (auto const &word : words) {
-    userTF[word]++;
-  }
-  unordered_map<string, double> IDF;
-  ifstream iIdf("data/IDF.txt");
-  string line, word;
-  double IDFNum;
-  while (getline(iIdf, line)) {
-    istringstream iss(line);
-    if (iss >> word >> IDFNum) {
-      IDF[word] = IDFNum;
-    }
-  }
-  //
-  // for (auto const &[word, IDFNum] : IDF) {
-  //   norm_factor += IDFNum * IDFNum;
-  // }
-  //
-  double norm_factor = 0.0;
-  for (auto const &[word, freq] : userTF) {
-    if (IDF.find(word) != IDF.end()) {
-      double temp = IDF[word] * static_cast<double>(freq);
-      norm_factor += temp * temp;
-    }
-  }
-  double normedFactor = sqrt(norm_factor);
-  vector<double> Base;
-  for (auto const &[word, freq] : userTF) {
-    // cout<<"外面的循环：word: "<<word<<" , freq:"<<freq<<"\n";
-    if (IDF.find(word) != IDF.end()) {
-      // cout<<"freq:"<<freq<<"\n";
-      Base.emplace_back((IDF[word] * freq) / normedFactor);
-    }
-  }
-  return Base;
-}
+// vector<double> buildBase(const vector<string> &words) {
+//   unordered_map<string, size_t> userTF;
+//   for (auto const &word : words) {
+//     userTF[word]++;
+//   }
+//   unordered_map<string, double> IDF;
+//   ifstream iIdf("data/IDF.txt");
+//   string line, word;
+//   double IDFNum;
+//   while (getline(iIdf, line)) {
+//     istringstream iss(line);
+//     if (iss >> word >> IDFNum) {
+//       IDF[word] = IDFNum;
+//     }
+//   }
+//   //
+//   // for (auto const &[word, IDFNum] : IDF) {
+//   //   norm_factor += IDFNum * IDFNum;
+//   // }
+//   //
+//   double norm_factor = 0.0;
+//   for (auto const &[word, freq] : userTF) {
+//     if (IDF.find(word) != IDF.end()) {
+//       double temp = IDF[word] * static_cast<double>(freq);
+//       norm_factor += temp * temp;
+//     }
+//   }
+//   double normedFactor = sqrt(norm_factor);
+//   vector<double> Base;
+//   for (auto const &[word, freq] : userTF) {
+//     // cout<<"外面的循环：word: "<<word<<" , freq:"<<freq<<"\n";
+//     if (IDF.find(word) != IDF.end()) {
+//       // cout<<"freq:"<<freq<<"\n";
+//       Base.emplace_back((IDF[word] * freq) / normedFactor);
+//     }
+//   }
+//   return Base;
+// }
 
 // void loadInvertedIndex(
 //     Redis &redis, unordered_map<size_t, unordered_map<string, double>> _w_new) {
